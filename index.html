@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Post com Imagem Editável + Senha</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .post-container {
+            background: white;
+            padding: 1em;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .post-image {
+            width: 100%;
+            border-radius: 12px;
+            transition: transform 0.3s ease;
+            cursor: zoom-in;
+        }
+
+        .post-image:hover {
+            transform: scale(1.05);
+        }
+
+        .buttons {
+            margin-top: 1em;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .buttons button {
+            background: #a066a0;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .buttons button:hover {
+            background: #7b4a7b;
+        }
+
+        .buttons button:active {
+            transform: scale(0.95);
+        }
+
+        .edit-section {
+            margin-top: 1em;
+        }
+
+        .edit-section button {
+            padding: 0.5em 1em;
+            background: #a066a0;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .edit-section button:hover {
+            background: #7b4a7b;
+        }
+
+        .like-count {
+            margin-top: 0.5em;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .comment-list {
+            margin-top: 1em;
+            text-align: left;
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        .comment-item {
+            border-bottom: 1px solid #ddd;
+            padding: 0.3em 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="post-container">
+        <img src="" alt="Imagem do post" class="post-image" id="postImage">
+
+        <div class="buttons">
+            <button id="likeBtn" title="Like">👍</button>
+            <button id="commentBtn" title="Comentários">💬</button>
+            <button id="shareBtn" title="Compartilhar">🔗</button>
+        </div>
+
+        <div class="like-count" id="likeCount">0 curtidas</div>
+
+        <div class="edit-section">
+            <button id="editImageBtn">Editar Imagem 🔒</button>
+            <input type="file" id="imageInput" accept="image/*" style="display:none;">
+        </div>
+
+        <div class="comment-list" id="commentList"></div>
+    </div>
+
+    <script>
+        // Simulando um usuário logado
+        const usuario = 'user123';
+        const senhaCorreta = 'senha123';
+
+        // Carregar imagem armazenada
+        const storedImage = localStorage.getItem('postImage');
+        const postImage = document.getElementById('postImage');
+        if (storedImage) {
+            postImage.src = storedImage;
+        } else {
+            postImage.src = 'https://via.placeholder.com/400x300?text=Sua+Imagem';
+        }
+
+        // Likes
+        let likes = JSON.parse(localStorage.getItem('likes')) || {};
+        const likeBtn = document.getElementById('likeBtn');
+        const likeCountDisplay = document.getElementById('likeCount');
+
+        function atualizarLikes() {
+            const totalLikes = Object.keys(likes).length;
+            likeCountDisplay.textContent = `${totalLikes} curtida${totalLikes !== 1 ? 's' : ''}`;
+
+            if (likes[usuario]) {
+                likeBtn.disabled = true;
+                likeBtn.style.opacity = 0.6;
+            }
+        }
+
+        likeBtn.addEventListener('click', () => {
+            if (!likes[usuario]) {
+                likes[usuario] = true;
+                localStorage.setItem('likes', JSON.stringify(likes));
+                atualizarLikes();
+            } else {
+                alert('Você já curtiu este post.');
+            }
+        });
+
+        // Comentários simulados
+        const comentarios = JSON.parse(localStorage.getItem('comentarios')) || [];
+        const commentList = document.getElementById('commentList');
+
+        function atualizarComentarios() {
+            commentList.innerHTML = '';
+            comentarios.forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'comment-item';
+                div.textContent = `${c.user}: ${c.text}`;
+                commentList.appendChild(div);
+            });
+        }
+
+        document.getElementById('commentBtn').addEventListener('click', () => {
+            const texto = prompt('Digite seu comentário:');
+            if (texto && texto.trim() !== '') {
+                comentarios.push({ user: usuario, text: texto.trim() });
+                localStorage.setItem('comentarios', JSON.stringify(comentarios));
+                atualizarComentarios();
+            }
+        });
+
+        document.getElementById('shareBtn').addEventListener('click', () => {
+            alert('Link do post copiado para a área de transferência!');
+        });
+
+        // Editar imagem com senha
+        const editImageBtn = document.getElementById('editImageBtn');
+        const imageInput = document.getElementById('imageInput');
+
+        editImageBtn.addEventListener('click', () => {
+            const senha = prompt('Digite a senha para editar a imagem:');
+            if (senha === senhaCorreta) {
+                imageInput.click();
+            } else {
+                alert('Senha incorreta!');
+            }
+        });
+
+        imageInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    postImage.src = e.target.result;
+                    localStorage.setItem('postImage', e.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Inicialização
+        atualizarLikes();
+        atualizarComentarios();
+    </script>
+
+</body>
+</html>
