@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Post com Imagem Editável + Senha</title>
+    <title>Post com Firebase</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -56,10 +56,6 @@
             background: #7b4a7b;
         }
 
-        .buttons button:active {
-            transform: scale(0.95);
-        }
-
         .edit-section {
             margin-top: 1em;
         }
@@ -71,7 +67,6 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            transition: background 0.3s;
         }
 
         .edit-section button:hover {
@@ -100,12 +95,11 @@
 <body>
 
     <div class="post-container">
-        <img src="" alt="Imagem do post" class="post-image" id="postImage">
+        <img src="https://via.placeholder.com/400x300?text=Sua+Imagem" alt="Imagem do post" class="post-image" id="postImage">
 
         <div class="buttons">
             <button id="likeBtn" title="Like">👍</button>
             <button id="commentBtn" title="Comentários">💬</button>
-            <button id="shareBtn" title="Compartilhar">🔗</button>
         </div>
 
         <div class="like-count" id="likeCount">0 curtidas</div>
@@ -118,75 +112,76 @@
         <div class="comment-list" id="commentList"></div>
     </div>
 
-    <script>
-        // Simulando um usuário logado
-        const usuario = 'user123';
-        const senhaCorreta = 'senha123';
+    <!-- Firebase scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
-        // Carregar imagem armazenada
-        const storedImage = localStorage.getItem('postImage');
-        const postImage = document.getElementById('postImage');
-        if (storedImage) {
-            postImage.src = storedImage;
-        } else {
-            postImage.src = 'https://via.placeholder.com/400x300?text=Sua+Imagem';
-        }
+    <script>
+        // Seu config do Firebase:
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY",
+            authDomain: "SEU_PROJETO.firebaseapp.com",
+            projectId: "SEU_PROJETO",
+            storageBucket: "SEU_PROJETO.appspot.com",
+            messagingSenderId: "XXXXXX",
+            appId: "XXXXXX"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const postId = 'post1';
 
         // Likes
-        let likes = JSON.parse(localStorage.getItem('likes')) || {};
         const likeBtn = document.getElementById('likeBtn');
         const likeCountDisplay = document.getElementById('likeCount');
 
-        function atualizarLikes() {
-            const totalLikes = Object.keys(likes).length;
-            likeCountDisplay.textContent = `${totalLikes} curtida${totalLikes !== 1 ? 's' : ''}`;
-
-            if (likes[usuario]) {
-                likeBtn.disabled = true;
-                likeBtn.style.opacity = 0.6;
-            }
-        }
-
         likeBtn.addEventListener('click', () => {
-            if (!likes[usuario]) {
-                likes[usuario] = true;
-                localStorage.setItem('likes', JSON.stringify(likes));
-                atualizarLikes();
-            } else {
-                alert('Você já curtiu este post.');
-            }
+            db.collection('likes').doc(postId).set({
+                count: firebase.firestore.FieldValue.increment(1)
+            }, { merge: true });
         });
 
-        // Comentários simulados
-        const comentarios = JSON.parse(localStorage.getItem('comentarios')) || [];
+        db.collection('likes').doc(postId).onSnapshot(doc => {
+            const data = doc.data();
+            likeCountDisplay.innerText = `${data?.count || 0} curtida${(data?.count || 0) !== 1 ? 's' : ''}`;
+        });
+
+        // Comentários
+        const commentBtn = document.getElementById('commentBtn');
         const commentList = document.getElementById('commentList');
 
-        function atualizarComentarios() {
-            commentList.innerHTML = '';
-            comentarios.forEach(c => {
-                const div = document.createElement('div');
-                div.className = 'comment-item';
-                div.textContent = `${c.user}: ${c.text}`;
-                commentList.appendChild(div);
-            });
-        }
-
-        document.getElementById('commentBtn').addEventListener('click', () => {
+        commentBtn.addEventListener('click', () => {
             const texto = prompt('Digite seu comentário:');
             if (texto && texto.trim() !== '') {
-                comentarios.push({ user: usuario, text: texto.trim() });
-                localStorage.setItem('comentarios', JSON.stringify(comentarios));
-                atualizarComentarios();
+                db.collection('comentarios').add({
+                    user: 'user123',
+                    text: texto.trim(),
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    postId: postId
+                });
             }
         });
 
-        document.getElementById('shareBtn').addEventListener('click', () => {
-            alert('Link do post copiado para a área de transferência!');
-        });
+        db.collection('comentarios')
+          .where('postId', '==', postId)
+          .orderBy('timestamp', 'desc')
+          .onSnapshot(snapshot => {
+              commentList.innerHTML = '';
+              snapshot.forEach(doc => {
+                  const data = doc.data();
+                  const div = document.createElement('div');
+                  div.className = 'comment-item';
+                  div.textContent = `${data.user}: ${data.text}`;
+                  commentList.appendChild(div);
+              });
+          });
 
-        // Editar imagem com senha
+        // Imagem editável com senha
+        const senhaCorreta = 'senha123';
         const editImageBtn = document.getElementById('editImageBtn');
         const imageInput = document.getElementById('imageInput');
+        const postImage = document.getElementById('postImage');
 
         editImageBtn.addEventListener('click', () => {
             const senha = prompt('Digite a senha para editar a imagem:');
@@ -202,16 +197,25 @@
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    postImage.src = e.target.result;
-                    localStorage.setItem('postImage', e.target.result);
+                    const imgData = e.target.result;
+                    postImage.src = imgData;
+                    db.collection('imagens').doc(postId).set({
+                        imagem: imgData
+                    });
                 };
                 reader.readAsDataURL(file);
             }
         });
 
-        // Inicialização
-        atualizarLikes();
-        atualizarComentarios();
+        // Carregar imagem salva
+        db.collection('imagens').doc(postId).get().then(doc => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data?.imagem) {
+                    postImage.src = data.imagem;
+                }
+            }
+        });
     </script>
 
 </body>
